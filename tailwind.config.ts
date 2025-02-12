@@ -9,6 +9,10 @@ export default {
   theme: {
     extend: {
       colors: {
+        yellow: "#FFC107",
+        orange: "#FF5722",
+        ke7li: "#0D1B2A",
+        ke7li50: "rgb(30, 63, 97)",
         background: "var(--background)",
         foreground: "var(--foreground)",
       },
