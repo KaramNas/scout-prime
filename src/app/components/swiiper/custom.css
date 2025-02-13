@@ -7,8 +7,23 @@
   }
   
   .swiper {
+    top: 100px;
     width: 100%;
-    height: 100%;
-    --swiper-theme-color: #ff0000;
+    height: 654px;
+
+  }
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .animate-fadeIn {
+    animation: fadeIn 1s ease-out forwards;
   }
   

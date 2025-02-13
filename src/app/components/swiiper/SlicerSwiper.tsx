@@ -1,54 +1,51 @@
 "use client"; 
 
-import { Navigation , EffectFade} from 'swiper/modules';
-import { Swiper, SwiperSlide } from 'swiper/react';
+import { useState } from "react";
+import { Swiper, SwiperSlide } from "swiper/react";
+import { Navigation, Autoplay } from "swiper/modules";
+import EffectSlicer from "./effect-slicer/effect-slicer.esm";
 
-import EffectSlicer from './effect-slicer/effect-slicer.esm';
-
-import 'swiper/css';
-import 'swiper/css/navigation';
-import './effect-slicer/effect-slicer.css';
-
-import './custom.css'
+import "swiper/css";
+import "swiper/css/navigation";
+import "./effect-slicer/effect-slicer.css";
+import "./custom.css";
 
 export default function SlicerSwiper() {
-  return (
-    <div className='app'>
-      <Swiper
-        modules={[Navigation, EffectSlicer ,EffectFade ]}
-        effect='slicer'
-        direction='horizontal'
-        speed={600}
-        grabCursor={true}
-        navigation= {true}
-        autoplay={{
-            delay: 2500,
-            disableOnInteraction: false,
-          }}
-        className='swiper-slicer'
-      >
-        <SwiperSlide>
-          <img  src="/images/02.jpg" alt="Slide 1" />
-        </SwiperSlide>
-        <SwiperSlide>
-          <img  src="/images/01.jpg" alt="Slide 2" />
-        </SwiperSlide>
-        <SwiperSlide>
-          <img  src="/images/02.jpg" alt="Slide 3" />
-        </SwiperSlide>
-        <SwiperSlide>
-          <img  src="/images/01.jpg" alt="Slide 4" />
-        </SwiperSlide>
-        <SwiperSlide>
-          <img  src="/images/02.jpg" alt="Slide 5" />
-        </SwiperSlide>
-      </Swiper>
+  const slides = [
+    { img: "/images/swiper1.jpg", title: "Navigating the Unknown", text: "A journey of adventure begins, learning to find the way through the great outdoors." },
+    { img: "/images/swiper2.jpg", title: "Campfire Stories & Friendship", text: "Under the starry sky, stories are shared, friendships are built, and memories last a lifetime." },
+    { img: "/images/swiper3.jpg", title: "Exploring Nature’s Wonders", text: "From towering trees to flowing rivers, every step is a lesson in resilience and discovery." },
+    { img: "/images/swiper4.jpg", title: "Finding the Path Forward", text: "With a map in hand and a goal in mind, every challenge becomes an opportunity to grow." },
+    { img: "/images/swiper5.jpg", title: "Stronger Together", text: "Teamwork, problem-solving, and leadership come to life through every new experience." }
+  ];
+  
+  const [activeIndex, setActiveIndex] = useState(0);
 
-      {/* Text below the carousel */}
-      <div className="text-center text-white py-4">
-        <h2 className="text-2xl font-bold">Welcome to Our Carousel</h2>
-        <p className="test">This is a test text to check if the carousel loads properly.</p>
-      </div>
+  return (
+    <div className="app relative">
+      <Swiper
+        modules={[Navigation, EffectSlicer, Autoplay]}
+        effect="slicer"
+        direction="horizontal"
+        speed={400}
+        grabCursor={true}
+        autoplay={{
+          delay: 8000,
+          disableOnInteraction: false,
+        }}
+        onSlideChange={(swiper) => setActiveIndex(swiper.realIndex)}
+        className="swiper-slicer"
+      >
+        {slides.map((slide, index) => (
+          <SwiperSlide key={index} className="relative">
+            <img className="swiper-slicer-image" src={slide.img} alt={`Slide ${index + 1}`} />
+            <div className={`absolute left-10 top-1/2 -translate-y-1/2 text-white max-w-md transition-opacity duration-2000 ${activeIndex === index ? "opacity-100" : "opacity-0"}`}>
+              <h2 className="text-3xl font-bold">{slide.title}</h2>
+              <p className="mt-2 text-lg">{slide.text}</p>
+            </div>
+          </SwiperSlide>
+        ))}
+      </Swiper>
     </div>
   );
 }

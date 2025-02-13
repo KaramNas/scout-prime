@@ -13,7 +13,7 @@
 
 .swiper-slicer .swiper-slide {
   overflow: hidden;
-  background-color: aqua;
+
 }
 .swiper-slicer-image, .swiper-slicer-image-clones, .swiper-slicer-image-clone {
   position: absolute;
