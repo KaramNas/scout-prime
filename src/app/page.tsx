@@ -1,4 +1,6 @@
 import Navbar from "./Nav/navigationbar";
+import AboutUsMain from "./components/aboutusmain";
+import LebanonMap from "./components/cesiummap/d3map";
 import SlicerSwiper from "./components/swiiper/SlicerSwiper";
 export default function Home() {
   return (
@@ -8,6 +10,8 @@ export default function Home() {
       <SlicerSwiper />
       <p>hiiii</p>
       </div>
+      <AboutUsMain/>
+      <LebanonMap />
     </div>
   );
 }
