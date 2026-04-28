@@ -12,12 +12,13 @@ export default function Home() {
       <Navbar />
 
       <SlicerSwiper />
-      
-      <AboutUsMain/>
-      <HomeParalax/>
-      <ContactUsMain/>
-      <ParallaxStats/>
-      <MainFooter/>
+
+      <AboutUsMain />
+      <HomeParalax />
+      <ContactUsMain />
+      <ParallaxStats />
+      <MainFooter />
+      <LebanonMap />
       <footer />
     </div>
   );

@@ -12,6 +12,23 @@ type HoveredZone = {
   areaSqkm: number;
 };
 
+// All 9 real PNG clouds — 4 depth layers with varying size, speed, opacity
+const CLOUDS = [
+  // Layer 1 — highest altitude, fastest, smallest, most transparent
+  { id: 0, img: "/images/clouds/cloud3.png", y: "3%", width: 240, opacity: 0.15, duration: 50, delay: 0 },
+  { id: 1, img: "/images/clouds/cloud7.png", y: "7%", width: 180, opacity: 0.10, duration: 65, delay: -18 },
+  // Layer 2 — mid-high
+  { id: 2, img: "/images/clouds/cloud1.png", y: "12%", width: 400, opacity: 0.25, duration: 85, delay: -32 },
+  { id: 3, img: "/images/clouds/cloud5.png", y: "17%", width: 320, opacity: 0.20, duration: 75, delay: -50 },
+  { id: 4, img: "/images/clouds/cloud9.png", y: "9%", width: 260, opacity: 0.13, duration: 105, delay: -8 },
+  // Layer 3 — mid, slower, more opaque
+  { id: 5, img: "/images/clouds/cloud2.png", y: "22%", width: 480, opacity: 0.30, duration: 125, delay: -42 },
+  { id: 6, img: "/images/clouds/cloud6.png", y: "27%", width: 360, opacity: 0.18, duration: 95, delay: -65 },
+  // Layer 4 — lowest, slowest, largest, most visible
+  { id: 7, img: "/images/clouds/cloud4.png", y: "33%", width: 580, opacity: 0.35, duration: 155, delay: -85 },
+  { id: 8, img: "/images/clouds/cloud8.png", y: "39%", width: 440, opacity: 0.22, duration: 135, delay: -28 },
+];
+
 const GOV_COLORS: Record<string, { fill: string; hover: string }> = {
   "Beirut": { fill: "#00ff88", hover: "#44ffaa" },
   "Mount Lebanon": { fill: "#22dd66", hover: "#55ff99" },
@@ -23,35 +40,15 @@ const GOV_COLORS: Record<string, { fill: string; hover: string }> = {
   "Baalbek-Hermel": { fill: "#ff4488", hover: "#ff77aa" },
 };
 
-// Pure CSS clouds — no JS animation loop, no setData(), GPU compositor only.
-// Each cloud is a DOM <img> with a CSS keyframe animation.
-// zIndex 5 puts them just above the map canvas (zIndex 4).
-const CLOUDS = [
-  { id: 0, img: "cloud1", top: "8%", width: "10vw", opacity: 0.30, duration: 55, delay: 0 },
-  { id: 1, img: "cloud3", top: "14%", width: "8vw", opacity: 0.22, duration: 42, delay: -12 },
-  { id: 2, img: "cloud5", top: "20%", width: "13vw", opacity: 0.28, duration: 68, delay: -28 },
-  { id: 3, img: "cloud7", top: "6%", width: "7vw", opacity: 0.18, duration: 38, delay: -8 },
-  { id: 4, img: "cloud9", top: "25%", width: "11vw", opacity: 0.25, duration: 72, delay: -40 },
-  { id: 5, img: "cloud2", top: "11%", width: "9vw", opacity: 0.20, duration: 48, delay: -55 },
-  { id: 6, img: "cloud6", top: "30%", width: "14vw", opacity: 0.26, duration: 85, delay: -20 },
-  { id: 7, img: "cloud4", top: "17%", width: "10vw", opacity: 0.22, duration: 60, delay: -35 },
-  { id: 8, img: "cloud8", top: "35%", width: "12vw", opacity: 0.24, duration: 78, delay: -62 },
-  { id: 9, img: "cloud1", top: "22%", width: "8vw", opacity: 0.18, duration: 50, delay: -15 },
-  { id: 10, img: "cloud3", top: "40%", width: "15vw", opacity: 0.28, duration: 92, delay: -44 },
-  { id: 11, img: "cloud5", top: "28%", width: "9vw", opacity: 0.20, duration: 58, delay: -30 },
-];
-
 export default function LebanonMap() {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const hoveredIdRef = useRef<string | number | null>(null);
-
   const [hoveredZone, setHoveredZone] = useState<HoveredZone | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [pulseActive, setPulseActive] = useState(false);
-  const [compassAngle, setCompassAngle] = useState(0);
 
   const loadingMessages = [
     "Initializing terrain…",
@@ -77,7 +74,7 @@ export default function LebanonMap() {
           {
             id: "background",
             type: "background",
-            paint: { "background-color": "#040d1a" },
+            paint: { "background-color": "#050e03" },
           },
         ],
       },
@@ -87,66 +84,39 @@ export default function LebanonMap() {
       maxZoom: 15,
       pitch: 44,
       bearing: -8,
-      antialias: false,
-      maxBounds: [
-        [33.8, 32.9],
-        [37.2, 34.8],
-      ],
+      antialias: true,
     });
 
     mapRef.current = map;
 
+    map.addControl(
+      new maplibregl.NavigationControl({ showCompass: true, visualizePitch: true }),
+      "top-right"
+    );
     map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-left");
-    map.on("rotate", () => setCompassAngle(map.getBearing()));
 
     map.on("load", async () => {
       clearInterval(stepInterval);
 
-      // ── Terrain ──
       map.addSource("terrain-dem", {
         type: "raster-dem",
-        url: "https://api.maptiler.com/tiles/terrain-rgb-v2/tiles.json?key=get_your_own_OpIi9ZULNHzrESv6T2vL",
+        url: "https://demotiles.maplibre.org/terrain-tiles/tiles.json",
         tileSize: 256,
-        attribution: "© MapTiler",
       });
       map.setTerrain({ source: "terrain-dem", exaggeration: 2.2 });
+
       map.addLayer({
         id: "hillshade",
         type: "hillshade",
         source: "terrain-dem",
         paint: {
-          "hillshade-exaggeration": 0.55,
-          "hillshade-shadow-color": "#000d1a",
+          "hillshade-exaggeration": 0.6,
+          "hillshade-shadow-color": "#001a00",
           "hillshade-highlight-color": "#aaffcc",
           "hillshade-accent-color": "#00ff88",
         },
       });
 
-      // ── Ocean water — using MapTiler (same key as terrain) ──
-      map.addSource("water-tiles", {
-        type: "vector",
-        url: "https://api.maptiler.com/tiles/v3/tiles.json?key=get_your_own_OpIi9ZULNHzrESv6T2vL",
-      });
-
-
-
-      map.addSource("water-raster", {
-        type: "raster",
-        tiles: [
-          "https://api.maptiler.com/tiles/water/tiles.json?key=OKMpy06HRfwGcSOGj5X5"
-        ],
-        tileSize: 256,
-      });
-      map.addLayer({
-        id: "water-raster-layer",
-        type: "raster",
-        source: "water-raster",
-        paint: {
-          "raster-opacity": 0.85,
-        },
-      });
-
-      // ── ADM3 zones ──
       map.addSource("adm3", {
         type: "geojson",
         data: "/lebanon-adm3.geojson",
@@ -236,7 +206,6 @@ export default function LebanonMap() {
         },
       });
 
-      // ── Hover interactions ──
       map.on("mousemove", "adm3-fill", (e) => {
         if (!e.features || e.features.length === 0) return;
         setMousePos({ x: e.point.x, y: e.point.y });
@@ -287,14 +256,12 @@ export default function LebanonMap() {
     : "#00ff88";
 
   return (
-    <div style={{
-      position: "relative", width: "100%", height: "100vh",
-      overflow: "hidden", fontFamily: "'Georgia', serif",
-    }}>
+    <div style={{ position: "relative", width: "100%", height: "100vh", background: "#050e03", overflow: "hidden", fontFamily: "'Georgia', serif" }}>
+
       <style>{`
         @keyframes cloudDrift {
-          from { transform: translateX(110vw); }
-          to   { transform: translateX(-25vw); }
+          from { transform: translateX(-700px); }
+          to   { transform: translateX(110vw);  }
         }
         @keyframes scanline {
           0%   { transform: translateY(-100%); opacity: 0; }
@@ -312,155 +279,30 @@ export default function LebanonMap() {
         }
         @keyframes shimmer {
           0%,100% { opacity: 0.6; }
-          50%     { opacity: 1; }
+          50%     { opacity: 1;   }
         }
         @keyframes gridScroll {
           from { background-position: 0 0; }
           to   { background-position: 40px 40px; }
         }
-        @keyframes mountainBreath {
-          0%,100% { opacity: 0.22; }
-          50%     { opacity: 0.34; }
-        }
-        @keyframes auraPulse {
-          0%,100% { opacity: 0.10; transform: translateX(-50%) scale(1); }
-          50%     { opacity: 0.20; transform: translateX(-50%) scale(1.06); }
-        }
       `}</style>
 
-      {/* ── SKY GRADIENT ── */}
-      <div style={{
-        position: "absolute", inset: 0, zIndex: 0,
-        background: "linear-gradient(180deg, #010a1c 0%, #021428 20%, #041c38 42%, #041510 68%, #020d06 100%)",
-      }} />
-
-      {/* ── AURORA / HORIZON GLOW ── */}
-      <div style={{
-        position: "absolute", bottom: "18%", left: "50%",
-        transform: "translateX(-50%)",
-        width: "75%", height: "200px",
-        background: "radial-gradient(ellipse at center, rgba(0,255,136,0.07) 0%, transparent 70%)",
-        zIndex: 1, pointerEvents: "none",
-        animation: "auraPulse 7s ease-in-out infinite",
-      }} />
-
-      {/* ── MOUNTAIN SILHOUETTE ── */}
-      <div style={{
-        position: "absolute", bottom: 0, left: 0, right: 0,
-        zIndex: 1, pointerEvents: "none",
-        animation: "mountainBreath 9s ease-in-out infinite",
-      }}>
-        <svg viewBox="0 0 1440 240" preserveAspectRatio="none"
-          style={{ width: "100%", height: "240px", display: "block" }}>
-          <path
-            d="M0,240 L0,170 L55,148 L100,162 L155,128 L210,98 L265,116 L315,82 L375,56 L425,74 L478,44 L535,62 L588,32 L645,58 L698,22 L755,48 L808,18 L865,40 L918,64 L972,38 L1028,58 L1082,84 L1135,62 L1185,92 L1238,72 L1288,102 L1342,122 L1385,108 L1440,132 L1440,240 Z"
-            fill="rgba(0,160,80,0.55)"
-          />
-          <path
-            d="M0,240 L0,195 L72,178 L135,188 L195,165 L255,174 L318,152 L385,160 L448,142 L512,152 L572,136 L632,147 L692,132 L750,143 L812,127 L872,140 L932,152 L992,142 L1052,156 L1112,147 L1170,162 L1228,152 L1288,167 L1358,157 L1440,170 L1440,240 Z"
-            fill="rgba(0,120,50,0.80)"
-          />
-          <rect x="0" y="220" width="1440" height="20" fill="rgba(0,100,40,0.90)" />
-        </svg>
-      </div>
-
-      {/* ── VIGNETTE ── */}
-      <div style={{
-        position: "absolute", inset: 0, zIndex: 2, pointerEvents: "none",
-        background: "radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(0,40,80,0.45) 100%)",
-      }} />
-
-      {/* ── GRID OVERLAY ── */}
-      {mapLoaded && (
-        <div style={{
-          position: "absolute", inset: 0, zIndex: 3, pointerEvents: "none",
-          backgroundImage:
-            "linear-gradient(rgba(0,255,136,0.022) 1px, transparent 1px)," +
-            "linear-gradient(90deg, rgba(0,255,136,0.022) 1px, transparent 1px)",
-          backgroundSize: "40px 40px",
-          animation: "gridScroll 8s linear infinite",
-        }} />
-      )}
-
-      {/* ── MAP CANVAS ── */}
-      <div ref={mapContainer} style={{ position: "absolute", inset: 0, zIndex: 4 }} />
-
-      {/* ── CLOUDS — pure CSS, above map, zero JS overhead ── */}
-      {mapLoaded && CLOUDS.map((cloud) => (
-        <div
-          key={cloud.id}
-          style={{
-            position: "absolute",
-            top: cloud.top,
-            left: 0,
-            zIndex: 5,
-            pointerEvents: "none",
-            animation: `cloudDrift ${cloud.duration}s linear ${cloud.delay}s infinite`,
-          }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={`/images/clouds/${cloud.img}.png`}
-            alt=""
-            style={{
-              width: cloud.width,
-              opacity: cloud.opacity,
-              display: "block",
-              userSelect: "none",
-            }}
-          />
-        </div>
-      ))}
-
-      {/* ── SCANLINE ── */}
-      {mapLoaded && (
-        <div style={{
-          position: "absolute", left: 0, right: 0, top: 0,
-          height: "3px", zIndex: 6, pointerEvents: "none",
-          background: "linear-gradient(90deg, transparent, rgba(0,255,136,0.4), transparent)",
-          animation: "scanline 3s ease-out 0.5s 1 forwards",
-        }} />
-      )}
-
-      {/* ── PULSE RING ── */}
-      {pulseActive && (
-        <div style={{
-          position: "absolute", left: "50%", top: "50%", zIndex: 7, pointerEvents: "none",
-          width: "300px", height: "300px",
-          border: "2px solid rgba(0,255,136,0.5)",
-          borderRadius: "50%",
-          animation: "pulseRing 2s ease-out forwards",
-        }} />
-      )}
-
-      {/* ── LOADING SCREEN ── */}
+      {/* Loading screen */}
       {!mapLoaded && (
         <div style={{
-          position: "absolute", inset: 0, zIndex: 100,
-          background: "linear-gradient(180deg, #0077c2 0%, #0099d6 20%, #00bcd4 42%, #26c97a 68%, #1db954 100%)",
-          display: "flex", flexDirection: "column", alignItems: "center",
-          justifyContent: "center", gap: "1.5rem",
+          position: "absolute", inset: 0, zIndex: 100, background: "#050e03",
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "1.5rem",
         }}>
-          <svg width="56" height="56" viewBox="0 0 48 48" fill="none"
-            style={{ animation: "shimmer 1.5s ease infinite" }}>
-            <path
-              d="M24 4 L28 16 L36 12 L30 22 L40 20 L32 28 L38 28 L24 40 L10 28 L16 28 L8 20 L18 22 L12 12 L20 16 Z"
-              fill="#00ff88" opacity="0.9"
-            />
+          <svg width="56" height="56" viewBox="0 0 48 48" fill="none" style={{ animation: "shimmer 1.5s ease infinite" }}>
+            <path d="M24 4 L28 16 L36 12 L30 22 L40 20 L32 28 L38 28 L24 40 L10 28 L16 28 L8 20 L18 22 L12 12 L20 16 Z" fill="#00ff88" opacity="0.9" />
             <rect x="22" y="40" width="4" height="6" fill="#6b4a2a" rx="1" />
           </svg>
           <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: "0.6rem", letterSpacing: "0.35em", color: "#00aa55", marginBottom: "0.5rem" }}>
-              SCOUTS FIELD RESEARCH
-            </div>
-            <div style={{ fontSize: "2.2rem", fontWeight: 300, letterSpacing: "0.18em", color: "#00ff88" }}>
-              LEBANON
-            </div>
-            <div style={{ fontSize: "0.65rem", letterSpacing: "0.2em", color: "#006633", marginTop: "0.3rem" }}>
-              CADASTRAL MAP
-            </div>
+            <div style={{ fontSize: "0.6rem", letterSpacing: "0.35em", color: "#00aa55", marginBottom: "0.5rem" }}>SCOUTS FIELD RESEARCH</div>
+            <div style={{ fontSize: "2.2rem", fontWeight: 300, letterSpacing: "0.18em", color: "#00ff88" }}>LEBANON</div>
+            <div style={{ fontSize: "0.65rem", letterSpacing: "0.2em", color: "#006633", marginTop: "0.3rem" }}>CADASTRAL MAP</div>
           </div>
-          <div style={{ width: "160px", height: "1px", background: "#0a1a0a", position: "relative", overflow: "hidden" }}>
+          <div style={{ width: "160px", height: "1px", background: "#0a2a0a", position: "relative", overflow: "hidden" }}>
             <div style={{
               position: "absolute", left: 0, top: 0, height: "100%", background: "#00ff88",
               width: `${((loadingStep + 1) / loadingMessages.length) * 100}%`,
@@ -468,21 +310,79 @@ export default function LebanonMap() {
               boxShadow: "0 0 8px #00ff88",
             }} />
           </div>
-          <div style={{ fontSize: "0.7rem", color: "#006633", letterSpacing: "0.1em" }}>
-            {loadingMessages[loadingStep]}
-          </div>
+          <div style={{ fontSize: "0.7rem", color: "#006633", letterSpacing: "0.1em" }}>{loadingMessages[loadingStep]}</div>
         </div>
       )}
 
-      {/* ── TITLE ── */}
+      {/* Scrolling poly grid */}
+      {mapLoaded && (
+        <div style={{
+          position: "absolute", inset: 0, zIndex: 1, pointerEvents: "none",
+          backgroundImage: "linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px)",
+          backgroundSize: "40px 40px",
+          animation: "gridScroll 8s linear infinite",
+        }} />
+      )}
+
+      {/* Real PNG clouds — all 9, 4 depth layers */}
+      {mapLoaded && CLOUDS.map((cloud) => (
+        <div
+          key={cloud.id}
+          style={{
+            position: "absolute",
+            top: cloud.y,
+            left: 0,
+            zIndex: 2,
+            pointerEvents: "none",
+            animation: `cloudDrift ${cloud.duration}s linear infinite`,
+            animationDelay: `${cloud.delay}s`,
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={cloud.img}
+            alt=""
+            style={{
+              width: `${cloud.width}px`,
+              opacity: cloud.opacity,
+              display: "block",
+              userSelect: "none",
+              filter: "blur(0.5px)",
+            }}
+          />
+        </div>
+      ))}
+
+      {/* Scanline sweep */}
+      {mapLoaded && (
+        <div style={{
+          position: "absolute", left: 0, right: 0, height: "3px", zIndex: 3, pointerEvents: "none",
+          background: "linear-gradient(90deg, transparent, rgba(0,255,136,0.4), transparent)",
+          animation: "scanline 3s ease-out 0.5s 1 forwards",
+          top: 0,
+        }} />
+      )}
+
+      {/* Map */}
+      <div ref={mapContainer} style={{ position: "absolute", inset: 0, zIndex: 0 }} />
+
+      {/* Pulse ring */}
+      {pulseActive && (
+        <div style={{
+          position: "absolute", left: "50%", top: "50%", zIndex: 5, pointerEvents: "none",
+          width: "300px", height: "300px",
+          border: "2px solid rgba(0,255,136,0.5)",
+          borderRadius: "50%",
+          animation: "pulseRing 2s ease-out forwards",
+        }} />
+      )}
+
+      {/* Title */}
       <div style={{ position: "absolute", top: "1.5rem", left: "1.5rem", zIndex: 10, pointerEvents: "none" }}>
         <div style={{ fontSize: "0.55rem", letterSpacing: "0.3em", color: "#00aa55", marginBottom: "0.3rem" }}>
           SCOUTS FIELD RESEARCH
         </div>
-        <div style={{
-          fontSize: "1.6rem", fontWeight: 300, letterSpacing: "0.15em",
-          color: "#00ff88", lineHeight: 1, textShadow: "0 0 24px rgba(0,255,136,0.5)",
-        }}>
+        <div style={{ fontSize: "1.6rem", fontWeight: 300, letterSpacing: "0.15em", color: "#00ff88", lineHeight: 1, textShadow: "0 0 20px rgba(0,255,136,0.4)" }}>
           LEBANON
         </div>
         <div style={{ fontSize: "0.6rem", letterSpacing: "0.18em", color: "#006633", marginTop: "0.25rem" }}>
@@ -490,7 +390,7 @@ export default function LebanonMap() {
         </div>
       </div>
 
-      {/* ── GOVERNORATE LEGEND ── */}
+      {/* Governorate legend */}
       {mapLoaded && (
         <div style={{
           position: "absolute", top: "1.5rem", right: "4rem", zIndex: 10,
@@ -501,7 +401,9 @@ export default function LebanonMap() {
             <div key={name} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <div style={{
                 width: "8px", height: "8px", borderRadius: "1px",
-                background: c.fill, boxShadow: `0 0 6px ${c.fill}`, flexShrink: 0,
+                background: c.fill,
+                boxShadow: `0 0 6px ${c.fill}`,
+                flexShrink: 0,
               }} />
               <span style={{ fontSize: "0.6rem", letterSpacing: "0.08em", color: c.fill, opacity: 0.85 }}>
                 {name}
@@ -511,62 +413,14 @@ export default function LebanonMap() {
         </div>
       )}
 
-      {/* ── COMPASS ROSE ── */}
-      {mapLoaded && (
-        <div style={{
-          position: "absolute", bottom: "4.5rem", right: "2rem", zIndex: 10,
-          width: "76px", height: "76px",
-          animation: "fadeIn 1.2s ease 0.8s both",
-        }}>
-          <svg
-            viewBox="0 0 80 80"
-            style={{
-              width: "100%", height: "100%",
-              transform: `rotate(${-compassAngle}deg)`,
-              transition: "transform 0.1s linear",
-              filter: "drop-shadow(0 0 8px rgba(0,255,136,0.35))",
-            }}
-          >
-            <circle cx="40" cy="40" r="37" fill="none" stroke="rgba(0,255,136,0.18)" strokeWidth="0.8" />
-            <circle cx="40" cy="40" r="31" fill="none" stroke="rgba(0,255,136,0.10)" strokeWidth="0.5" />
-            {Array.from({ length: 32 }).map((_, i) => {
-              const angle = (i * 360) / 32;
-              const rad = (angle * Math.PI) / 180;
-              const isMaj = i % 8 === 0;
-              const isHalf = i % 4 === 0 && !isMaj;
-              const r1 = isMaj ? 28 : isHalf ? 31 : 33;
-              return (
-                <line key={i}
-                  x1={40 + r1 * Math.sin(rad)} y1={40 - r1 * Math.cos(rad)}
-                  x2={40 + 36 * Math.sin(rad)} y2={40 - 36 * Math.cos(rad)}
-                  stroke={isMaj ? "rgba(0,255,136,0.55)" : "rgba(0,255,136,0.20)"}
-                  strokeWidth={isMaj ? 1.2 : 0.6}
-                />
-              );
-            })}
-            <polygon points="40,5  44,33 40,29 36,33" fill="#00ff88" opacity="0.95" />
-            <polygon points="40,75 44,47 40,51 36,47" fill="rgba(0,255,136,0.28)" />
-            <polygon points="75,40 47,44 51,40 47,36" fill="rgba(0,255,136,0.28)" />
-            <polygon points="5,40  33,44 29,40 33,36" fill="rgba(0,255,136,0.28)" />
-            <circle cx="40" cy="40" r="4" fill="#00ff88" opacity="0.9" />
-            <circle cx="40" cy="40" r="1.8" fill="#040d1a" />
-            <text x="40" y="3" textAnchor="middle" fontSize="7"
-              fill="#00ff88" fontFamily="Georgia, serif" letterSpacing="0.05em">N</text>
-          </svg>
-        </div>
-      )}
-
-      {/* ── HOVER TOOLTIP ── */}
+      {/* Hover tooltip */}
       {hoveredZone && (
         <div style={{
           position: "absolute",
           left: mousePos.x + 18,
-          top: Math.min(
-            mousePos.y - 10,
-            (typeof window !== "undefined" ? window.innerHeight : 800) - 200
-          ),
+          top: Math.min(mousePos.y - 10, (typeof window !== "undefined" ? window.innerHeight : 800) - 200),
           zIndex: 20,
-          background: "rgba(1, 8, 18, 0.94)",
+          background: "rgba(2, 10, 2, 0.92)",
           border: `1px solid ${govColor}55`,
           borderRadius: "6px",
           padding: "0.75rem 1rem",
@@ -589,19 +443,19 @@ export default function LebanonMap() {
           )}
           <div style={{ height: "1px", background: `${govColor}33`, margin: "0.4rem 0" }} />
           <div style={{ fontSize: "0.7rem", color: "#557755", lineHeight: 1.8 }}>
-            <div>District:    <span style={{ color: govColor, opacity: 0.8 }}>{hoveredZone.district}</span></div>
+            <div>District: <span style={{ color: govColor, opacity: 0.8 }}>{hoveredZone.district}</span></div>
             <div>Governorate: <span style={{ color: govColor, opacity: 0.8 }}>{hoveredZone.governorate}</span></div>
-            <div>Area:        <span style={{ color: govColor, opacity: 0.8 }}>{hoveredZone.areaSqkm.toFixed(2)} km²</span></div>
+            <div>Area: <span style={{ color: govColor, opacity: 0.8 }}>{hoveredZone.areaSqkm.toFixed(2)} km²</span></div>
           </div>
         </div>
       )}
 
-      {/* ── BOTTOM HINTS ── */}
+      {/* Bottom hint */}
       <div style={{
         position: "absolute", bottom: "2.5rem", left: "50%", transform: "translateX(-50%)",
         zIndex: 10, pointerEvents: "none",
         display: "flex", gap: "1.2rem",
-        fontSize: "0.55rem", letterSpacing: "0.12em", color: "#1a3a2a", whiteSpace: "nowrap",
+        fontSize: "0.55rem", letterSpacing: "0.12em", color: "#1a4a1a", whiteSpace: "nowrap",
       }}>
         <span>SCROLL TO ZOOM</span><span>·</span>
         <span>DRAG TO PAN</span><span>·</span>
